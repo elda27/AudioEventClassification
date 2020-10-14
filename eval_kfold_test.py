@@ -6,7 +6,8 @@ import numpy as np
 
 networks = {
     'cnn': 'cnn_cnn',
-    'cnn-resnet': 'cnn_resnet'
+    'cnn-resnet': 'cnn_resnet',
+    'cnn-cbam': 'cnn_cbam'
 }
 
 

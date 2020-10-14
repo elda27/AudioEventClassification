@@ -11,6 +11,10 @@ networks = {
     'cnn-resnet': {
         'model_type': 'resnet',
         'file': 'CNN.ipynb',
+    },
+    'cnn-cbam': {
+        'model_type': 'cbam',
+        'file': 'CNN.ipynb',
     }
 }
 
