@@ -23,7 +23,7 @@ class ResidualCBAM(tf.keras.Model):
 
         _cbam_kwargs = dict(gate_channels=n_filters)
         _cbam_kwargs.update(cbam_kwargs)
-        self.cbam = cbam.CBAM(**cbam_kwargs)
+        self.cbam = cbam.CBAM(_cbam_kwargs.pop('gate_channels'), **cbam_kwargs)
 
     # @tf.function
     def call(self, x, training=False):
