@@ -2,11 +2,14 @@ import tensorflow as tf
 
 
 class ConvAttention(tf.keras.Model):
-    def __init__(self, n_filters, n_heads=8, bias=False, with_skip_connection=True):
+    def __init__(
+        self, n_filters, n_heads=8, bias=False,
+        with_skip_connection=True
+    ):
         assert (n_filters % n_heads) == 0
         super().__init__()
         self.conv_qkv = tf.keras.layers.Conv2D(
-            n_filters * 2, kernel_size=1, stride=1, padding=1, bias=bias,
+            n_filters * 2, kernel_size=1, stride=1, bias=bias,
             padding='same'
         )
         self.with_skip_connection = with_skip_connection
@@ -17,7 +20,7 @@ class ConvAttention(tf.keras.Model):
         q, k = tf.split(qk, 2, axis=-1)  # [N, H, W, n_filters//2]
         w = tf.nn.softmax(tf.matmul(q, k, transpose_b=True), axis=-1)
         y = tf.nn.matmul(w, v)
-        if with_skip_connection:
+        if self.with_skip_connection:
             y = x + y
         return y, w
 
@@ -38,7 +41,7 @@ class AxialAttention(tf.keras.Model):
         # Multi-head self attention
         self.conv_qkv = tf.keras.layers.Conv2D(
             n_filters * 2, kernel_size=1, stride=1,
-            padding=0, bias=False, padding='same'
+            bias=False, padding='same'
         )
         self.norm_qkv = normalize_layer()
         self.norm_attention = normalize_layer()
@@ -132,7 +135,7 @@ class AxialAttentionBlock(tf.keras.Model):
         )
         self.norm2 = normalize_layer()
 
-    def forward(self, x, training=False):
+    def call(self, x, training=False):
 
         y = self.conv_down(x)
         y = self.norm1(y, training=training)
