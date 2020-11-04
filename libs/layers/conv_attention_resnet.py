@@ -13,7 +13,7 @@ class AttentionResNet18(ResNetBase):
         )
 
 
-class AttentionResNet1834(ResNetBase):
+class AttentionResNet34(ResNetBase):
     def __init__(self, kernel_size=3, block_kwargs={}):
         super().__init__(
             [64, 128, 256, 512], [3, 4, 6, 3], ConvAttention,
@@ -21,7 +21,7 @@ class AttentionResNet1834(ResNetBase):
         )
 
 
-class AttentionResNet1850(ResNetBase):
+class AttentionResNet50(ResNetBase):
     def __init__(self, kernel_size=3, block_kwargs={}):
         super().__init__(
             [64, 128, 256, 512], [3, 4, 6, 3], ConvAttention,
@@ -29,9 +29,41 @@ class AttentionResNet1850(ResNetBase):
         )
 
 
-class AttentionResNet18101(ResNetBase):
+class AttentionResNet101(ResNetBase):
     def __init__(self, kernel_size=3, block_kwargs={}):
         super().__init__(
             [64, 128, 256, 512], [3, 4, 23, 3], ConvAttention,
+            kernel_size=kernel_size, block_kwargs=block_kwargs
+        )
+
+
+class AxialAttentionResNet18(ResNetBase):
+    def __init__(self, kernel_size=3, block_kwargs={}):
+        super().__init__(
+            [64, 128, 256, 512], [2, 2, 2, 2], AxialAttentionBlock,
+            kernel_size=kernel_size, block_kwargs=block_kwargs
+        )
+
+
+class AxialAttentionResNet34(ResNetBase):
+    def __init__(self, kernel_size=3, block_kwargs={}):
+        super().__init__(
+            [64, 128, 256, 512], [3, 4, 6, 3], AxialAttentionBlock,
+            kernel_size=kernel_size, block_kwargs=block_kwargs
+        )
+
+
+class AxialAttentionResNet50(ResNetBase):
+    def __init__(self, kernel_size=3, block_kwargs={}):
+        super().__init__(
+            [64, 128, 256, 512], [3, 4, 6, 3], AxialAttentionBlock,
+            kernel_size=kernel_size, block_kwargs=block_kwargs
+        )
+
+
+class AxialAttentionResNet101(ResNetBase):
+    def __init__(self, kernel_size=3, block_kwargs={}):
+        super().__init__(
+            [64, 128, 256, 512], [3, 4, 23, 3], AxialAttentionBlock,
             kernel_size=kernel_size, block_kwargs=block_kwargs
         )

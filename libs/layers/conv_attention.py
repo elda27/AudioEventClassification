@@ -3,32 +3,38 @@ import tensorflow as tf
 
 class ConvAttention(tf.keras.Model):
     def __init__(
-        self, n_filters, n_heads=8, bias=False,
-        with_skip_connection=True
+        self, n_filters, n_heads=8, use_bias=False,
+        kernel_size=1, normalize_layer=tf.keras.layers.LayerNormalization,
+        with_skip_connection=True, return_attention=False
     ):
         assert (n_filters % n_heads) == 0
         super().__init__()
         self.conv_qkv = tf.keras.layers.Conv2D(
-            n_filters * 2, kernel_size=1, stride=1, bias=bias,
+            n_filters * 2, kernel_size=kernel_size, use_bias=use_bias,
             padding='same'
         )
+        self.norm = normalize_layer()
+        self.return_attention = return_attention
         self.with_skip_connection = with_skip_connection
 
-    def call(self, x):
-        qkv = self.conv_qkv(x)  # [N, H, W, n_filters*2]
+    def call(self, x, training=False):
+        qkv = self.conv_qkv(self.norm(x, training=training))  # [N, H, W, n_filters*2]
         qk, v = tf.split(qkv, 2, axis=-1)  # [N, H, W, n_filters]
         q, k = tf.split(qk, 2, axis=-1)  # [N, H, W, n_filters//2]
         w = tf.nn.softmax(tf.matmul(q, k, transpose_b=True), axis=-1)
-        y = tf.nn.matmul(w, v)
+        y = tf.linalg.matmul(w, v)
         if self.with_skip_connection:
             y = x + y
-        return y, w
+        if self.return_attention:
+            return y, w
+        else:
+            return y
 
 
 class AxialAttention(tf.keras.Model):
     def __init__(
         self, n_filters, n_heads=8, embed_size=56,
-        bias=False, width_attention=False,
+        kernel_size=1, use_bias=False, width_attention=False,
         normalize_layer=tf.keras.layers.BatchNormalization
     ):
         assert n_filters % n_heads == 0
@@ -40,8 +46,8 @@ class AxialAttention(tf.keras.Model):
 
         # Multi-head self attention
         self.conv_qkv = tf.keras.layers.Conv2D(
-            n_filters * 2, kernel_size=1, stride=1,
-            bias=False, padding='same'
+            n_filters * 2, kernel_size=kernel_size,
+            use_bias=False, padding='same'
         )
         self.norm_qkv = normalize_layer()
         self.norm_attention = normalize_layer()
@@ -67,38 +73,37 @@ class AxialAttention(tf.keras.Model):
         else:
             x = tf.transpose(x, (0, 2, 3, 1))  # [N, H, W, C] -> [N, W, C, H]
 
-        N, A, C, F = tf.shape(x,)
+        N, A, C, F = tf.shape(x)
 
         # Transformations
-        qkv = self.bn_qkv(self.conv_qkv(x))
+        qkv = self.bn_qkv(self.conv_qkv(x), training=training)
         q, k, v = tf.split(
-            qkv, [self.n_filters, self.n_filters, self.n_filters],
+            qkv, [self.n_filters // 2, self.n_filters // 2, self.n_filters],
             axis=1
         )
 
-        qk, v = tf.split(qkv, 2, axis=-1)  # [N, H, W, n_filters]
-        q, k = tf.split(qk, 2, axis=-1)  # [N, H, W, n_filters//2]
+        # qk, v = tf.split(qkv, 2, axis=-1)  # [N, H, W, n_filters]
+        # q, k = tf.split(qk, 2, axis=-1)  # [N, H, W, n_filters//2]
+
         # Calculate position embedding
-        all_embeddings = tf.reshape(
-            tf.gather(self.relative, self.relative_index),
-            (self.embed_size * 2, self.embed_size, self.embed_size)
-        )
         q_embedding, k_embedding, v_embedding = tf.split(
-            all_embeddings, [self.n_filters, self.n_filters, self.n_filters * 2], axis=1
+            tf.gather(self.relative, self.relative_index),
+            (self.embed_size, self.embed_size, self.embed_size * 2),
+            axis=0
         )
-        qr = tf.transpose(tf.matmul(q, q_embedding), (0, 2, 1))
-        kr = tf.matmul(k, k_embedding)
-        qk = tf.matmul(q, k)
+        qr = tf.transpose(tf.linalg.matmul(q, q_embedding), (0, 2, 1))
+        kr = tf.linalg.matmul(k, k_embedding)
+        qk = tf.linalg.matmul(q, k)
         stacked_similarity = tf.concat([qk, qr, kr], axis=1)
         stacked_similarity = tf.reduce_sum(
             tf.reshape(
-                self.bn_similarity(stacked_similarity),
+                self.bn_similarity(stacked_similarity, training=training),
                 (N * A, 3, self.n_channel, F, F)
             )
         )
         similarity = tf.nn.softmax(stacked_similarity, axis=-1)
-        sv = tf.matmul(similarity, v)
-        sve = tf.matmul(similarity, v_embedding)
+        sv = tf.linalg.matmul(similarity, v)
+        sve = tf.linalg.matmul(similarity, v_embedding)
         y = self.bn_output(sv + sve, training=training)
         if self.width:
             y = tf.transpose(y, (0, 1, 3, 2))  # [N, H, C, W] -> [N, H, W, C]
@@ -111,7 +116,7 @@ class AxialAttention(tf.keras.Model):
 class AxialAttentionBlock(tf.keras.Model):
     def __init__(
         self, n_filters, n_heads=8, embed_size=56,
-        bias=False, width_attention=False,
+        use_bias=False, width_attention=False,
         normalize_layer=tf.keras.layers.BatchNormalization
     ):
         super().__init__()
@@ -122,12 +127,12 @@ class AxialAttentionBlock(tf.keras.Model):
         self.norm1 = normalize_layer()
         self.hight_block = AxialAttention(
             n_filters, n_heads=n_heads, embed_size=embed_size,
-            bias=bias, width_attention=width_attention,
+            use_bias=use_bias, width_attention=width_attention,
             normalize_layer=normalize_layer, width=False
         )
         self.width_block = AxialAttention(
             n_filters, n_heads=n_heads, embed_size=embed_size,
-            bias=bias, width_attention=width_attention,
+            use_bias=use_bias, width_attention=width_attention,
             normalize_layer=normalize_layer, width=True
         )
         self.conv_up = tf.keras.layers.Conv2D(
