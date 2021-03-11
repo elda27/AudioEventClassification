@@ -8,7 +8,6 @@ class ReformerEncoder(tf.keras.Model):
         self,
         hidden_size: int = 768,
         seq_size: int = 4096,
-        intermediate_size: int = 3072,
         hidden_mask_prob: float = 0.0,
         num_attention_heads: int = 12,
         num_hidden_layers: int = 8,
@@ -27,7 +26,12 @@ class ReformerEncoder(tf.keras.Model):
         self.embedding = tf.keras.Sequential(embedding_layers)
         self.positional_encoding = positional_encoding(seq_size, hidden_size)
 
-        self.encoder = TFReformer()
+        self.encoder = TFReformer(
+            emb=hidden_size,
+            depth=num_hidden_layers,
+            max_seq_len=seq_size,
+            heads=num_attention_heads,
+        )
 
     def call(self, xs, mask=None, training=False):
         assert mask is not None
